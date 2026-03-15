@@ -22,9 +22,27 @@ class BaseHandler:
         return False
 
     @staticmethod
-    def slugify(text: str, max_len: int = 80) -> str:
-        s = re.sub(r"[^a-z0-9\s-]", "", text.lower().strip())
-        return re.sub(r"\s+", "-", s)[:max_len]
+    def slugify(name: str, product_no: str = None, max_len: int = 80) -> str:
+        import time
+        import random
+        import string
+        
+        # Base name slug
+        s = re.sub(r"[^a-z0-9\s-]", "", name.lower().strip())
+        slug = re.sub(r"\s+", "-", s)
+        
+        # Add product no if available to make it more intuitive
+        if product_no:
+            no_s = re.sub(r"[^a-z0-9]", "", product_no.lower().strip())
+            if no_s:
+                slug = f"{slug}-{no_s}"
+        
+        # Append timestamp + random suffix (8 chars total)
+        # Use a longer suffix to absolutely prevent collisions
+        suffix = f"{int(time.time() % 1000):03d}" + ''.join(random.choices(string.ascii_lowercase + string.digits, k=4))
+        
+        full_slug = f"{slug}-{suffix}"
+        return full_slug[:max_len]
 
     @staticmethod
     def split_csv(text: str) -> list[str]:
@@ -35,6 +53,7 @@ class BaseHandler:
         lines = [
             "📦 *Product Summary*",
             f"• *Name:* {d.get('name')}",
+            f"• *Item No:* {d.get('product_name', 'N/A')}",
             f"• *Slug:* `{d.get('slug')}`",
             f"• *Price:* ₦{d.get('price'):,.0f}",
         ]

@@ -65,6 +65,7 @@ async def post_init(app: Application) -> None:
         BotCommand("logout", "Log out"),
         BotCommand("whoami", "Check who you're logged in as"),
         BotCommand("addproduct", "Add a new product"),
+        BotCommand("template", "Show product entry template"),
         BotCommand("categories", "List categories"),
         BotCommand("addcategory", "Create a category"),
         BotCommand("cancel", "Cancel current operation"),
@@ -73,7 +74,8 @@ async def post_init(app: Application) -> None:
 
 
 def main() -> None:
-    app = Application.builder().token(TELEGRAM_BOT_TOKEN).post_init(post_init).build()
+    # Build with a longer request timeout (20s) for Telegram API calls
+    app = Application.builder().token(TELEGRAM_BOT_TOKEN).post_init(post_init).read_timeout(20).write_timeout(20).connect_timeout(20).build()
 
     app.add_handler(CommandHandler("start", cmd_start))
     app.add_handler(CommandHandler("whoami", cmd_whoami))

@@ -1,0 +1,15 @@
+# fly.toml — CMHair Telegram Bot
+app = "cmhair-bot"
+primary_region = "ams"  # Amsterdam — change to nearest: lhr (London), jnb (Johannesburg), sin (Singapore)
+
+[build]
+
+# No [http_service] — this is a background worker, not a web server
+
+[env]
+  # Non-secret env vars go here. Secrets (TELEGRAM_BOT_TOKEN etc.) go via flyctl secrets set
+
+[[vm]]
+  memory = "256mb"
+  cpu_kind = "shared"
+  cpus = 1

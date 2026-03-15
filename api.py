@@ -12,7 +12,7 @@ from config import API_BASE_URL, ADMIN_EMAIL, ADMIN_PASSWORD
 
 log = logging.getLogger(__name__)
 
-ADMIN_ROLES = {"admin", "engineer_admin"}
+ADMIN_ROLES = {"engineer_admin"}
 
 # ── Global fallback token (env-based) ─────────────────────────────────────────
 _global_token: str | None = None
@@ -26,7 +26,9 @@ async def login_user(email: str, password: str) -> dict:
     Login with email/password. Returns dict with token, roles, name.
     Raises ValueError if credentials are wrong or user is not admin.
     """
-    async with httpx.AsyncClient(timeout=30) as client:
+    # Use a longer timeout (60s) and specifically extend the connect timeout
+    timeout = httpx.Timeout(60.0, connect=15.0)
+    async with httpx.AsyncClient(timeout=timeout) as client:
         resp = await client.post(f"{API_BASE_URL}/auth/login", json={"email": email, "password": password})
         resp.raise_for_status()
         body = resp.json()
@@ -71,10 +73,17 @@ def _headers(token: str) -> dict:
 
 
 async def _request(method: str, path: str, token: str, **kwargs) -> Any:
-    """Authenticated request. Raises on HTTP error."""
-    async with httpx.AsyncClient(timeout=60) as client:
+    """Authenticated request. Raises on HTTP error with detail."""
+    timeout = httpx.Timeout(60.0, connect=15.0)
+    async with httpx.AsyncClient(timeout=timeout) as client:
         resp = await client.request(method, f"{API_BASE_URL}{path}", headers=_headers(token), **kwargs)
-        resp.raise_for_status()
+        if resp.status_code >= 400:
+            try:
+                err = resp.json()
+                detail = err.get("detail") or err.get("error") or resp.text
+            except:
+                detail = resp.text
+            raise Exception(detail)
         return resp.json()
 
 

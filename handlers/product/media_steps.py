@@ -13,12 +13,88 @@ from states import (
     ASK_DESCRIPTION, ASK_CATEGORY, ASK_BADGE, ASK_COLORS,
     ASK_LENGTHS, ASK_BUNDLES, ASK_CAP_SIZES, ASK_IMAGES, ASK_CONFIRM,
 )
+from utils.parser import parse_template, get_template_example
 
 log = logging.getLogger(__name__)
 
 
 class ProductHandler(FormSteps):
     MAX_IMAGES = 10
+
+    async def start(self, update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> int:
+        if not await self.require_auth(update, ctx):
+            return ConversationHandler.END
+        
+        # Preserve auth/user info but clear previous product draft
+        tok = ctx.user_data.get("token")
+        name = ctx.user_data.get("user_name")
+        roles = ctx.user_data.get("roles")
+        ctx.user_data.clear()
+        ctx.user_data["token"] = tok
+        ctx.user_data["user_name"] = name
+        ctx.user_data["roles"] = roles
+        ctx.user_data["images"] = []
+
+        await update.message.reply_text(
+            "🛍️ *Add New Product*\n\n"
+            "Please send a **Photo with a Caption** or a **Text Template** containing the product details.\n\n"
+            "💡 *Tip:* Use /template to see the required format.\n"
+            "*(Or just send the product name to start step-by-step)*",
+            parse_mode="Markdown"
+        )
+        return ASK_NAME
+
+    async def show_template_example(self, update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
+        await update.message.reply_text(
+            "📋 *Product Template*\n\n"
+            "Copy and fill this. You can send it as a text message or as a caption to a photo.\n\n"
+            f"```\n{get_template_example()}\n```",
+            parse_mode="Markdown"
+        )
+
+    async def handle_template_or_name(self, update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> int:
+        text = update.message.caption or update.message.text
+        if not text:
+            return ASK_NAME
+        
+        # Check if it looks like a template (has at least 3 colons)
+        if text.count(':') >= 3:
+            data = parse_template(text)
+            if data.get('name') and data.get('price'):
+                ctx.user_data.update(data)
+                ctx.user_data['slug'] = self.slugify(data['name'], data.get('product_name'))
+                
+                # Handle image if present
+                if update.message.photo:
+                    msg = await update.message.reply_text("⏳ Uploading image from template…")
+                    try:
+                        photo = update.message.photo[-1]
+                        raw = await (await ctx.bot.get_file(photo.file_id)).download_as_bytearray()
+                        url = await api.upload_image(bytes(raw), self.token(ctx), "template_image.jpg")
+                        ctx.user_data.setdefault("images", []).append(url)
+                        await msg.edit_text("✅ Image uploaded!")
+                    except Exception as exc:
+                        log.error("Template image upload failed: %s", exc)
+                        await msg.edit_text(f"⚠️ Image upload failed: {exc}")
+
+                # Try to find category ID if category name is provided
+                if data.get('category_name'):
+                    try:
+                        cats = await api.get_categories(self.token(ctx))
+                        for c in cats:
+                            if c['name'].lower() == data['category_name'].lower() or \
+                               data['category_name'].lower() in c['name'].lower():
+                                ctx.user_data['category_id'] = str(c['id'])
+                                ctx.user_data['_category_name'] = c['name']
+                                break
+                    except Exception as e:
+                        log.error("Category lookup failed: %s", e)
+
+                await update.message.reply_text("✅ Template parsed successfully!")
+                return await self.confirm_prompt(update, ctx)
+
+        # Fallback to normal name entry
+        return await self.ask_slug(update, ctx)
 
     async def ask_lengths(self, update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> int:
         if update.message.text.strip() != "/skip":
@@ -86,7 +162,7 @@ class ProductHandler(FormSteps):
             "name": d["name"], "slug": d["slug"], "price": d["price"],
             "stock": d.get("stock", 0), "is_active": True, "is_archived": False, "is_muted": False,
         }
-        for key in ("original_price", "description", "category_id", "badge", "colors", "lengths", "bundles", "cap_sizes"):
+        for key in ("product_name", "original_price", "description", "category_id", "badge", "colors", "lengths", "bundles", "cap_sizes", "videos"):
             if d.get(key):
                 payload[key] = d[key]
         if d.get("images"):
@@ -101,8 +177,8 @@ class ProductHandler(FormSteps):
                 parse_mode="Markdown",
             )
         except Exception as exc:
-            log.error("Product creation failed: %s", exc)
-            await ctx.bot.send_message(chat_id=query.message.chat_id, text=f"❌ Failed: `{exc}`", parse_mode="Markdown")
+            log.error("Product creation failed. Payload: %s, Error: %s", payload, exc)
+            await ctx.bot.send_message(chat_id=query.message.chat_id, text=f"❌ Failed: {exc}", parse_mode="Markdown")
         return ConversationHandler.END
 
     async def cancel(self, update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> int:
@@ -112,9 +188,15 @@ class ProductHandler(FormSteps):
     def build(self) -> ConversationHandler:
         txt = filters.TEXT & ~filters.COMMAND
         return ConversationHandler(
-            entry_points=[CommandHandler("addproduct", self.start)],
+            entry_points=[
+                CommandHandler("addproduct", self.start),
+                CommandHandler("template", self.show_template_example),
+            ],
             states={
-                ASK_NAME:           [MessageHandler(txt, self.ask_slug)],
+                ASK_NAME:           [
+                    MessageHandler(filters.PHOTO | txt, self.handle_template_or_name),
+                    CommandHandler("template", self.show_template_example)
+                ],
                 ASK_SLUG:           [MessageHandler(txt, self.ask_price), CommandHandler("use_suggested", self.ask_price)],
                 ASK_PRICE:          [MessageHandler(txt, self.ask_original_price)],
                 ASK_ORIGINAL_PRICE: [MessageHandler(txt, self.ask_stock), CommandHandler("skip", self.ask_stock)],

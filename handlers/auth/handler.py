@@ -5,10 +5,11 @@ from telegram import Update
 from telegram.ext import (
     CommandHandler, ContextTypes, ConversationHandler, MessageHandler, filters,
 )
+import httpx
 from states import AUTH_EMAIL, AUTH_PASSWORD
 
 log = logging.getLogger(__name__)
-ADMIN_ROLES = {"admin", "engineer_admin"}
+ADMIN_ROLES = {"engineer_admin"}
 
 
 class AuthHandler:
@@ -43,8 +44,9 @@ class AuthHandler:
 
             if not roles & ADMIN_ROLES:
                 await msg.edit_text(
-                    "⛔ *Access Denied*\n\nYour account does not have admin privileges.\n"
-                    "Contact the engineer admin to get access.",
+                    "⛔ *Access Denied*\n\nYour account does not have **Engineer Admin** privileges.\n"
+                    "Normal admins are not allowed to use this bot.\n"
+                    "Contact the system administrator if you believe this is an error.",
                     parse_mode="Markdown",
                 )
                 return ConversationHandler.END
@@ -60,8 +62,12 @@ class AuthHandler:
                 f"Use /addproduct to add a product or /start for all commands.",
                 parse_mode="Markdown",
             )
+        except httpx.ConnectTimeout:
+            await msg.edit_text("⏳ *Connection Timeout*\n\nThe bot couldn't reach the server. Please check your internet or wait a moment and try again.", parse_mode="Markdown")
+        except httpx.HTTPStatusError as e:
+            await msg.edit_text(f"❌ *Server Error:* `{e.response.status_code}`\n\nTry again later.", parse_mode="Markdown")
         except Exception as exc:
-            await msg.edit_text(f"❌ Login failed: `{exc}`\n\nTry /login again.", parse_mode="Markdown")
+            await msg.edit_text(f"❌ *Login failed:* `{exc}`\n\nTry /login again.", parse_mode="Markdown")
 
         return ConversationHandler.END
 
