@@ -108,7 +108,7 @@ async def upload_image(file_bytes: bytes, token: str, filename: str = "image.jpg
         resp = await client.post(
             f"{API_BASE_URL}/upload/image",
             headers=_headers(token),
-            files={"file": (filename, file_bytes, "image/jpeg")},
+            files={"file": (filename, bytes(file_bytes), "image/jpeg")},
         )
         resp.raise_for_status()
         return resp.json()["url"]

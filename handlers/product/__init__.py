@@ -1,10 +1,8 @@
 """handlers/product package."""
-from handlers.product.media_steps import ProductHandler
+from handlers.product.excel_handler import ExcelProductHandler
 from telegram.ext import ConversationHandler
 
-
 def build_add_product_handler() -> ConversationHandler:
-    return ProductHandler().build()
-
+    return ExcelProductHandler().build()
 
 __all__ = ["build_add_product_handler"]
