@@ -38,15 +38,16 @@ class ExcelProductHandler(BaseHandler):
         headers = [
             "product_name", "Slug", "product_code", "Original Price", 
             "Discount price", "Stock", "Capsize", "Inches", "Bundles", 
-            "Color", "Parting", "Styling", "Description"
+            "Color", "Parting", "Styling", "Category", "Description"
         ]
         ws.append(headers)
         
         # Provide dummy data correctly aligned with the project schema
         dummy_row = [
             "Bone Straight Closure Wig", "bone-straight-closure-wig", "BSC-01", 150.0,
-            120.0, 50, "Medium", "14, 16, 18", "3", 
-            "Natural Black", "Middle Part", "Straight", "Premium quality 100% human hair bone straight closure wig."
+            120.0, 50, "Medium", "14:$120, 16:$150, 18:$170", "3", 
+            "Natural Black", "Middle Part", "Straight", "Wigs",
+            "Premium quality 100% human hair bone straight closure wig."
         ]
         ws.append(dummy_row)
         
@@ -214,25 +215,43 @@ class ExcelProductHandler(BaseHandler):
                     # Inches logic, split by spaces or commas
                     inches_str = self.extract_value(row, headers, ["inch", "length"])
                     inches = []
+                    length_prices = []
+                    
                     if inches_str:
                         if ',' in inches_str:
-                            inches = [x.strip() for x in inches_str.split(',') if x.strip()]
+                            raw_inches = [x.strip() for x in inches_str.split(',') if x.strip()]
                         else:
-                            inches = [x.strip() for x in inches_str.split(' ') if x.strip()]
-                            # If it looks like '10 12 14', we probably want to keep it as grouped,
-                            # but the requirement was "available lengths in inches one should be able to add multiple inches and not just one" 
-                            # "Groups of 3: 10, 12, 14". We'll just pass the string as a single length if it's already grouped, 
-                            # or array of strings. Let's pass array of strings and let frontend handle it.
-                            # Actually, let's just use the raw string, or array of single group string if it doesn't have commas
-                            if len(inches) > 1 and ',' not in inches_str:
-                                inches = [inches_str] # Treats '10 12 14' as one selection option
+                            raw_inches = [x.strip() for x in inches_str.split(' ') if x.strip()]
+                            if len(raw_inches) > 1 and ',' not in inches_str:
+                                raw_inches = [inches_str] 
                             else:
-                                inches = self.split_commas_or_semicolons(inches_str)
+                                raw_inches = self.split_commas_or_semicolons(inches_str)
+                                
+                        for v in raw_inches:
+                            if ':' in v or '$' in v:
+                                parts = v.split(':') if ':' in v else v.split('$')
+                                if len(parts) >= 2:
+                                    import re
+                                    length = parts[0].replace('$', '').strip()
+                                    price_str = re.sub(r'[^\d.]', '', parts[1])
+                                    if price_str:
+                                        length_prices.append({"length": length, "price": float(price_str)})
+                                        inches.append(length)
+                                    else:
+                                        inches.append(v)
+                            else:
+                                inches.append(v)
 
                     # description fallback if styling is present
                     final_desc = desc or ""
                     if styling:
-                        final_desc += f"\n\nStyling: {', '.join(styling)}"
+                        final_desc += f"\nStyling: {', '.join(styling)}"
+                        
+                    # Resolve category name → UUID
+                    category_name = self.extract_value(row, headers, ["category", "cat"])
+                    category_id = None
+                    if category_name:
+                        category_id = await api.resolve_category_id(category_name, self.token(ctx))
                         
                     # Always use only the images uploaded through telegram for this bulk insert
                     all_images = uploaded_image_urls
@@ -248,11 +267,13 @@ class ExcelProductHandler(BaseHandler):
                         "is_preorder": is_preorder,
                         "cap_sizes": capsize if capsize else None,
                         "lengths": inches if inches else None,
+                        "length_prices": length_prices if length_prices else None,
                         "bundles": bundles if bundles else None,
                         "colors": colors if colors else None,
                         "images": all_images if all_images else [],
                         "parting_options": parting if parting else None,
                         "description": final_desc.strip(),
+                        "category_id": category_id,
                         "is_active": True,
                     }
                     
@@ -294,7 +315,7 @@ class ExcelProductHandler(BaseHandler):
 
     def build(self) -> ConversationHandler:
         return ConversationHandler(
-            entry_points=[CommandHandler("addproduct", self.start)],
+            entry_points=[CommandHandler("bulkproduct", self.start)],
             states={
                 WAIT_EXCEL: [
                     MessageHandler(filters.Document.ALL, self.handle_document),

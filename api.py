@@ -93,6 +93,30 @@ async def get_categories(token: str) -> list[dict]:
     return await _request("GET", "/products/categories", token)
 
 
+async def resolve_category_id(category_name: str, token: str) -> str | None:
+    """
+    Look up a category by name (case-insensitive, partial match).
+    Returns the category UUID string, or None if not found.
+    Available categories: Wigs, Wavy Bundles, Body Wave, Deep Wave
+    """
+    if not category_name:
+        return None
+    try:
+        categories = await get_categories(token)
+        name_lower = category_name.strip().lower()
+        # 1. Exact match first (name or slug)
+        for cat in categories:
+            if cat["name"].lower() == name_lower or cat["slug"].lower() == name_lower:
+                return cat["id"]
+        # 2. Partial match (e.g. "wig" matches "Wigs")
+        for cat in categories:
+            if name_lower in cat["name"].lower() or name_lower in cat["slug"].lower():
+                return cat["id"]
+    except Exception as e:
+        log.warning("Could not resolve category '%s': %s", category_name, e)
+    return None
+
+
 async def create_product(data: dict, token: str) -> dict:
     return await _request("POST", "/products/", token, json=data)
 

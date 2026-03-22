@@ -10,19 +10,29 @@ def parse_template(text: str) -> dict:
     
     mapping = {
         r'product name': 'name',
+        r'slug': 'slug',
+        r'product code': 'product_code',
+        r'code': 'product_code',
         r'no': 'product_name',
         r'item no': 'product_name',
         r'original price': 'original_price',
+        r'discount price': 'price',
         r'cost price': 'price',
         r'price': 'price',
         r'stock': 'stock',
         r'capsize': 'cap_sizes',
         r'category': 'category_name',
         r'inches': 'lengths',
+        r'length': 'lengths',
         r'bundles': 'bundles',
         r'colors': 'colors',
+        r'color': 'colors',
+        r'parting': 'parting_options',
+        r'styling': 'styling',
+        r'style': 'styling',
         r'badge': 'badge',
         r'description': 'description',
+        r'desc': 'description',
         r'videos': 'videos',
     }
     
@@ -38,11 +48,31 @@ def parse_template(text: str) -> dict:
         
         for pattern, field in mapping.items():
             if pattern in key_part:
-                if field in ('cap_sizes', 'lengths', 'bundles', 'colors'):
-                    # Handle multiple values separated by commas or just single value
+                if field in ('cap_sizes', 'lengths', 'bundles', 'colors', 'parting_options', 'styling'):
                     vals = [v.strip() for v in val_part.split(',') if v.strip()]
-                    # If it's something like "26" for inches, we store as ["26"]
-                    data[field] = vals
+                    
+                    if field == 'lengths':
+                        parsed_lengths = []
+                        length_prices = []
+                        for v in vals:
+                            if ':' in v or '$' in v:
+                                # example: "10:$150" or "10: 150"
+                                parts = v.split(':') if ':' in v else v.split('$')
+                                if len(parts) >= 2:
+                                    length = parts[0].replace('$', '').strip()
+                                    price_str = re.sub(r'[^\d.]', '', parts[1])
+                                    if price_str:
+                                        length_prices.append({"length": length, "price": float(price_str)})
+                                        parsed_lengths.append(length)
+                                    else:
+                                        parsed_lengths.append(v)
+                            else:
+                                parsed_lengths.append(v)
+                        data[field] = parsed_lengths
+                        if length_prices:
+                            data['length_prices'] = length_prices
+                    else:
+                        data[field] = vals
                 elif field in ('price', 'original_price'):
                     # Remove currency symbols and commas
                     val = re.sub(r'[^\d.]', '', val_part.replace(',', ''))
@@ -51,11 +81,19 @@ def parse_template(text: str) -> dict:
                     except ValueError:
                         pass
                 elif field == 'stock':
-                    val = re.sub(r'[^\d]', '', val_part)
-                    try:
-                        data[field] = int(val)
-                    except ValueError:
-                        pass
+                    slower = val_part.lower()
+                    if 'available' in slower:
+                        data[field] = 99
+                        data['is_preorder'] = False
+                    elif 'pre' in slower:
+                        data[field] = 0
+                        data['is_preorder'] = True
+                    else:
+                        val = re.sub(r'[^\d]', '', val_part)
+                        try:
+                            data[field] = int(val)
+                        except ValueError:
+                            pass
                 else:
                     data[field] = val_part
                 break
@@ -70,7 +108,8 @@ def get_template_example() -> str:
         "Stock: 1\n"
         "Capsize: Medium\n"
         "Category: Wigs\n"
-        "Inches: 26\n"
+        "(Options: Wigs, Wavy Bundles, Body Wave, Deep Wave)\n"
+        "Inches: 26:$1270, 28:$1350\n"
         "Bundles: 3.5\n"
         "Colors: Natural color, Custom Made\n"
         "DESCRIPTION: 26/3.5 SSW CLOSURE WIG NATURAL COLOR"

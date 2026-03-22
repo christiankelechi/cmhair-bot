@@ -66,7 +66,7 @@ python bot.py
 /addproduct
   → Product name
   → Slug (auto-suggested, you can override)
-  → Price (₦)
+  → Price ($)
   → Original price (optional)
   → Stock quantity
   → Description (optional)

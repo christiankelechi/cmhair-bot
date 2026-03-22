@@ -59,7 +59,7 @@ class AuthHandler:
             await msg.edit_text(
                 f"✅ *Welcome, {result['name']}!*\n\n"
                 f"Role: *{role_label}*\n\n"
-                f"Use /addproduct to add a product or /start for all commands.",
+                f"Use /addproduct for a single product (text/image), /bulkproduct for Excel upload, or /start for all commands.",
                 parse_mode="Markdown",
             )
         except httpx.ConnectTimeout:

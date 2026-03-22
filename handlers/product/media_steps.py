@@ -173,7 +173,7 @@ class ProductHandler(FormSteps):
             slug = p.get("slug", "")
             await ctx.bot.send_message(
                 chat_id=query.message.chat_id,
-                text=f"🎉 *Product created!*\n\n• Name: {p.get('name')}\n• Slug: `{slug}`\n• Price: ₦{p.get('price'):,.0f}\n\n🔗 https://cmhairbyhills.org/product/{slug}",
+                text=f"🎉 *Product created!*\n\n• Name: {p.get('name')}\n• Slug: `{slug}`\n• Price: ${p.get('price'):,.0f}\n\n🔗 https://cmhairbyhills.org/product/{slug}",
                 parse_mode="Markdown",
             )
         except Exception as exc:

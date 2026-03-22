@@ -55,10 +55,10 @@ class BaseHandler:
             f"• *Name:* {d.get('name')}",
             f"• *Item No:* {d.get('product_name', 'N/A')}",
             f"• *Slug:* `{d.get('slug')}`",
-            f"• *Price:* ₦{d.get('price'):,.0f}",
+            f"• *Price:* ${d.get('price'):,.0f}",
         ]
         if d.get("original_price"):
-            lines.append(f"• *Original Price:* ₦{d['original_price']:,.0f}")
+            lines.append(f"• *Original Price:* ${d['original_price']:,.0f}")
         lines.append(f"• *Stock:* {d.get('stock', 0)}")
         if d.get("description"):
             lines.append(f"• *Description:* {d['description'][:120]}")

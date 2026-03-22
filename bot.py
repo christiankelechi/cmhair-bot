@@ -11,6 +11,7 @@ import api
 from config import TELEGRAM_BOT_TOKEN
 from handlers import (
     build_add_product_handler,
+    build_bulk_product_handler,
     build_add_category_handler,
     build_auth_handler,
     list_categories,
@@ -35,7 +36,8 @@ async def cmd_start(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
         "• /login — Log in with your admin account\n"
         "• /logout — Log out\n\n"
         "📦 *Products*\n"
-        "• /addproduct — Add a new product (with images)\n\n"
+        "• /addproduct — Add single product via template\n"
+        "• /bulkproduct — Bulk upload via Excel\n\n"
         "📂 *Categories*\n"
         "• /categories — List categories\n"
         "• /addcategory — Create a category\n\n"
@@ -64,7 +66,8 @@ async def post_init(app: Application) -> None:
         BotCommand("login", "Log in with your admin account"),
         BotCommand("logout", "Log out"),
         BotCommand("whoami", "Check who you're logged in as"),
-        BotCommand("addproduct", "Add a new product"),
+        BotCommand("addproduct", "Add single product via template"),
+        BotCommand("bulkproduct", "Bulk upload via Excel"),
         BotCommand("template", "Show product entry template"),
         BotCommand("categories", "List categories"),
         BotCommand("addcategory", "Create a category"),
@@ -84,6 +87,7 @@ def main() -> None:
 
     app.add_handler(build_auth_handler())
     app.add_handler(build_add_product_handler())
+    app.add_handler(build_bulk_product_handler())
     app.add_handler(build_add_category_handler())
 
     log.info("Polling for updates…")
