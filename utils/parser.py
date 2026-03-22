@@ -30,11 +30,16 @@ def parse_template(text: str) -> dict:
         r'parting': 'parting_options',
         r'styling': 'styling',
         r'style': 'styling',
+        r'unavailable lengths': 'unavailable_lengths',
+        r'out of stock': 'unavailable_lengths',
         r'badge': 'badge',
         r'description': 'description',
         r'desc': 'description',
         r'videos': 'videos',
     }
+    
+    # Sort patterns by length descending to match most specific first
+    sorted_patterns = sorted(mapping.keys(), key=len, reverse=True)
     
     for line in lines:
         if ':' not in line:
@@ -46,29 +51,33 @@ def parse_template(text: str) -> dict:
         # Special case for "inches" which mapped to "lengths"
         # and "capsize" which mapped to "cap_sizes" 
         
-        for pattern, field in mapping.items():
+        for pattern in sorted_patterns:
             if pattern in key_part:
-                if field in ('cap_sizes', 'lengths', 'bundles', 'colors', 'parting_options', 'styling'):
+                field = mapping[pattern]
+                if field in ('cap_sizes', 'lengths', 'bundles', 'colors', 'parting_options', 'styling', 'unavailable_lengths'):
                     vals = [v.strip() for v in val_part.split(',') if v.strip()]
                     
-                    if field == 'lengths':
-                        parsed_lengths = []
+                    if field == 'lengths' or field == 'unavailable_lengths':
+                        parsed_vals = []
                         length_prices = []
                         for v in vals:
-                            if ':' in v or '$' in v:
+                            # Clean "inches"/"in" from the value
+                            v_clean = re.sub(r'(?i)\s*(inches|inch|in)\s*', '', v).strip()
+                            
+                            if field == 'lengths' and (':' in v or '$' in v):
                                 # example: "10:$150" or "10: 150"
                                 parts = v.split(':') if ':' in v else v.split('$')
                                 if len(parts) >= 2:
-                                    length = parts[0].replace('$', '').strip()
+                                    length = re.sub(r'(?i)\s*(inches|inch|in)\s*', '', parts[0].replace('$', '')).strip()
                                     price_str = re.sub(r'[^\d.]', '', parts[1])
                                     if price_str:
                                         length_prices.append({"length": length, "price": float(price_str)})
-                                        parsed_lengths.append(length)
+                                        parsed_vals.append(length)
                                     else:
-                                        parsed_lengths.append(v)
+                                        parsed_vals.append(v_clean)
                             else:
-                                parsed_lengths.append(v)
-                        data[field] = parsed_lengths
+                                parsed_vals.append(v_clean)
+                        data[field] = parsed_vals
                         if length_prices:
                             data['length_prices'] = length_prices
                     else:
@@ -110,6 +119,8 @@ def get_template_example() -> str:
         "Category: Wigs\n"
         "(Options: Wigs, Wavy Bundles, Body Wave, Deep Wave)\n"
         "Inches: 26:$1270, 28:$1350\n"
+        "Unavailable Lengths: 10, 12\n"
+        "Styling: Body Wave, Deep Wave Layers\n"
         "Bundles: 3.5\n"
         "Colors: Natural color, Custom Made\n"
         "DESCRIPTION: 26/3.5 SSW CLOSURE WIG NATURAL COLOR"

@@ -37,16 +37,16 @@ class ExcelProductHandler(BaseHandler):
         
         headers = [
             "product_name", "Slug", "product_code", "Original Price", 
-            "Discount price", "Stock", "Capsize", "Inches", "Bundles", 
-            "Color", "Parting", "Styling", "Category", "Description"
+            "Discount price", "Stock", "Capsize", "Inches", "Unavailable Lengths", 
+            "Bundles", "Color", "Parting", "Styling", "Category", "Description"
         ]
         ws.append(headers)
         
         # Provide dummy data correctly aligned with the project schema
         dummy_row = [
             "Bone Straight Closure Wig", "bone-straight-closure-wig", "BSC-01", 150.0,
-            120.0, 50, "Medium", "14:$120, 16:$150, 18:$170", "3", 
-            "Natural Black", "Middle Part", "Straight", "Wigs",
+            120.0, 50, "Medium", "14:$120, 16:$150, 18:$170", "10, 12",
+            "3", "Natural Black", "Middle Part", "Straight", "Wigs",
             "Premium quality 100% human hair bone straight closure wig."
         ]
         ws.append(dummy_row)
@@ -210,6 +210,7 @@ class ExcelProductHandler(BaseHandler):
                     colors = self.split_commas_or_semicolons(self.extract_value(row, headers, ["color"]))
                     parting = self.split_commas_or_semicolons(self.extract_value(row, headers, ["parting"]))
                     styling = self.split_commas_or_semicolons(self.extract_value(row, headers, ["styling", "style"]))
+                    unavailable_lengths = self.split_commas_or_semicolons(self.extract_value(row, headers, ["unavailable", "out of stock"]))
                     desc = self.extract_value(row, headers, ["description", "desc"])
                     
                     # Inches logic, split by spaces or commas
@@ -244,8 +245,11 @@ class ExcelProductHandler(BaseHandler):
 
                     # description fallback if styling is present
                     final_desc = desc or ""
-                    if styling:
-                        final_desc += f"\nStyling: {', '.join(styling)}"
+                    # We no longer need to append styling to desc since it has its own field,
+                    # but keeping it for legacy or searchability if desired? 
+                    # User specifically asked for styling field.
+                    # if styling:
+                    #     final_desc += f"\nStyling: {', '.join(styling)}"
                         
                     # Resolve category name → UUID
                     category_name = self.extract_value(row, headers, ["category", "cat"])
@@ -270,6 +274,8 @@ class ExcelProductHandler(BaseHandler):
                         "length_prices": length_prices if length_prices else None,
                         "bundles": bundles if bundles else None,
                         "colors": colors if colors else None,
+                        "styling": styling if styling else None,
+                        "unavailable_lengths": unavailable_lengths if unavailable_lengths else None,
                         "images": all_images if all_images else [],
                         "parting_options": parting if parting else None,
                         "description": final_desc.strip(),

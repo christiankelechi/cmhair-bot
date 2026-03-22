@@ -90,6 +90,8 @@ class SingleProductHandler(BaseHandler):
                 "length_prices": data.get('length_prices', None),
                 "bundles": data.get('bundles', None),
                 "colors": data.get('colors', None),
+                "styling": data.get('styling', None),
+                "unavailable_lengths": data.get('unavailable_lengths', None),
                 "images": uploaded_image_urls,
                 "parting_options": data.get('parting_options', None),
                 "description": data.get('description', ''),

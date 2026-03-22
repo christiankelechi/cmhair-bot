@@ -16,6 +16,7 @@ class TestParser(unittest.TestCase):
         color: Natural Black, Red
         parting: Middle Part, Free Part
         styling: Straight
+        unavailable lengths: 10, 12
         description: Great quality
         preorder: available
         """
@@ -33,6 +34,7 @@ class TestParser(unittest.TestCase):
         self.assertEqual(data.get('colors'), ['Natural Black', 'Red'])
         self.assertEqual(data.get('parting_options'), ['Middle Part', 'Free Part'])
         self.assertEqual(data.get('styling'), ['Straight'])
+        self.assertEqual(data.get('unavailable_lengths'), ['10', '12'])
         self.assertEqual(data.get('description'), 'Great quality')
         
     def test_preorder_stock(self):
