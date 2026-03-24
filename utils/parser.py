@@ -13,8 +13,8 @@ def parse_template(text: str) -> dict:
         r'slug': 'slug',
         r'product code': 'product_code',
         r'code': 'product_code',
-        r'no': 'product_name',
-        r'item no': 'product_name',
+        r'no': 'product_code',
+        r'item no': 'product_code',
         r'original price': 'original_price',
         r'discount price': 'price',
         r'cost price': 'price',
@@ -111,17 +111,18 @@ def parse_template(text: str) -> dict:
 def get_template_example() -> str:
     return (
         "Product name: curls\n"
-        "No: CMH 570\n"
+        "Slug: curls-2024\n"
+        "Product Code: CMH 570\n"
         "Original Price: $1320\n"
         "Cost Price: $1270\n"
         "Stock: 1\n"
         "Capsize: Medium\n"
         "Category: Wigs\n"
-        "(Options: Wigs, Wavy Bundles, Body Wave, Deep Wave)\n"
         "Inches: 26:$1270, 28:$1350\n"
         "Unavailable Lengths: 10, 12\n"
         "Styling: Body Wave, Deep Wave Layers\n"
+        "Parting: Middle Part, Side Part\n"
         "Bundles: 3.5\n"
         "Colors: Natural color, Custom Made\n"
-        "DESCRIPTION: 26/3.5 SSW CLOSURE WIG NATURAL COLOR"
+        "Description: 26/3.5 SSW CLOSURE WIG NATURAL COLOR"
     )

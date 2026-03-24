@@ -62,9 +62,10 @@ class ProductHandler(FormSteps):
             data = parse_template(text)
             if data.get('name') and data.get('price'):
                 ctx.user_data.update(data)
-                ctx.user_data['slug'] = self.slugify(data['name'], data.get('product_name'))
+                if not ctx.user_data.get('slug'):
+                    ctx.user_data['slug'] = self.slugify(data['name'], data.get('product_name'))
                 
-                # Handle image if present
+                # Handle images if present
                 if update.message.photo:
                     msg = await update.message.reply_text("⏳ Uploading image from template…")
                     try:
@@ -94,31 +95,31 @@ class ProductHandler(FormSteps):
                 return await self.confirm_prompt(update, ctx)
 
         # Fallback to normal name entry
-        return await self.ask_slug(update, ctx)
+        return await self.ask_product_code(update, ctx)
 
     async def ask_lengths(self, update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> int:
         if update.message.text.strip() != "/skip":
             ctx.user_data["colors"] = self.split_csv(update.message.text)
-        await update.message.reply_text("Step 10 — *Lengths*? (e.g. 10inch) — or /skip", parse_mode="Markdown")
+        await update.message.reply_text("Step 11 — *Lengths*? (e.g. 10inch) — or /skip", parse_mode="Markdown")
         return ASK_LENGTHS
 
     async def ask_bundles(self, update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> int:
         if update.message.text.strip() != "/skip":
             ctx.user_data["lengths"] = self.split_csv(update.message.text)
-        await update.message.reply_text("Step 11 — *Bundles*? (e.g. 1 Bundle) — or /skip", parse_mode="Markdown")
+        await update.message.reply_text("Step 12 — *Bundles*? (e.g. 1 Bundle) — or /skip", parse_mode="Markdown")
         return ASK_BUNDLES
 
     async def ask_cap_sizes(self, update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> int:
         if update.message.text.strip() != "/skip":
             ctx.user_data["bundles"] = self.split_csv(update.message.text)
-        await update.message.reply_text("Step 12 — *Cap sizes*? (e.g. Small, Medium) — or /skip", parse_mode="Markdown")
+        await update.message.reply_text("Step 13 — *Cap sizes*? (e.g. Small, Medium) — or /skip", parse_mode="Markdown")
         return ASK_CAP_SIZES
 
     async def ask_images(self, update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> int:
         if update.message.text.strip() != "/skip":
-            ctx.user_data["cap_sizes"] = self.split_csv(update.message.text)
+            ctx.user_data["unavailable_lengths"] = self.split_csv(update.message.text)
         await update.message.reply_text(
-            "📸 *Step 13 — Upload images*\n\nSend photos one by one (max 10).\nSend /done when finished.",
+            "📸 *Step 16 — Upload images*\n\nSend photos one by one (max 10).\nSend /done when finished.",
             parse_mode="Markdown",
         )
         return ASK_IMAGES
@@ -162,7 +163,12 @@ class ProductHandler(FormSteps):
             "name": d["name"], "slug": d["slug"], "price": d["price"],
             "stock": d.get("stock", 0), "is_active": True, "is_archived": False, "is_muted": False,
         }
-        for key in ("product_name", "original_price", "description", "category_id", "badge", "colors", "lengths", "bundles", "cap_sizes", "videos"):
+        optional_fields = (
+            "product_name", "product_code", "original_price", "description", 
+            "category_id", "badge", "colors", "lengths", "bundles", 
+            "cap_sizes", "parting_options", "styling", "unavailable_lengths", "videos"
+        )
+        for key in optional_fields:
             if d.get(key):
                 payload[key] = d[key]
         if d.get("images"):
@@ -197,6 +203,7 @@ class ProductHandler(FormSteps):
                     MessageHandler(filters.PHOTO | txt, self.handle_template_or_name),
                     CommandHandler("template", self.show_template_example)
                 ],
+                ASK_PRODUCT_CODE:   [MessageHandler(txt, self.ask_slug), CommandHandler("skip", self.ask_slug)],
                 ASK_SLUG:           [MessageHandler(txt, self.ask_price), CommandHandler("use_suggested", self.ask_price)],
                 ASK_PRICE:          [MessageHandler(txt, self.ask_original_price)],
                 ASK_ORIGINAL_PRICE: [MessageHandler(txt, self.ask_stock), CommandHandler("skip", self.ask_stock)],
@@ -207,7 +214,10 @@ class ProductHandler(FormSteps):
                 ASK_COLORS:         [MessageHandler(txt, self.ask_lengths), CommandHandler("skip", self.ask_lengths)],
                 ASK_LENGTHS:        [MessageHandler(txt, self.ask_bundles), CommandHandler("skip", self.ask_bundles)],
                 ASK_BUNDLES:        [MessageHandler(txt, self.ask_cap_sizes), CommandHandler("skip", self.ask_cap_sizes)],
-                ASK_CAP_SIZES:      [MessageHandler(txt, self.ask_images), CommandHandler("skip", self.ask_images)],
+                ASK_CAP_SIZES:      [MessageHandler(txt, self.ask_parting), CommandHandler("skip", self.ask_parting)],
+                ASK_PARTING:        [MessageHandler(txt, self.ask_styling), CommandHandler("skip", self.ask_styling)],
+                ASK_STYLING:        [MessageHandler(txt, self.ask_unavailable_lengths), CommandHandler("skip", self.ask_unavailable_lengths)],
+                ASK_UNAVAILABLE_LENGTHS: [MessageHandler(txt, self.ask_images), CommandHandler("skip", self.ask_images)],
                 ASK_IMAGES:         [MessageHandler(filters.PHOTO, self.receive_image), CommandHandler("done", self.confirm_prompt)],
                 ASK_CONFIRM:        [CallbackQueryHandler(self.receive_confirm, pattern=r"^confirm:")],
             },

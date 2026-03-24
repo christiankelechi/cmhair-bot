@@ -36,8 +36,8 @@ class ExcelProductHandler(BaseHandler):
         ws.title = "Products Template"
         
         headers = [
-            "product_name", "Slug", "product_code", "Original Price", 
-            "Discount price", "Stock", "Capsize", "Inches", "Unavailable Lengths", 
+            "Product Name", "Slug", "Product Code", "Original Price", 
+            "Discount Price", "Stock", "Capsize", "Inches", "Unavailable Lengths", 
             "Bundles", "Color", "Parting", "Styling", "Category", "Description"
         ]
         ws.append(headers)
@@ -155,11 +155,11 @@ class ExcelProductHandler(BaseHandler):
             
             for index, row in enumerate(data_rows, start=2):
                 try:
-                    name = self.extract_value(row, headers, ["product_name", "name"])
+                    name = self.extract_value(row, headers, ["product_name", "product name", "name"])
                     slug = self.extract_value(row, headers, ["slug"])
                         
                     if not name:
-                        name = self.extract_value(row, headers, ["product_code", "code"]) # fallback
+                        name = self.extract_value(row, headers, ["product_code", "product code", "code"]) # fallback
                         
                     if not name:
                         failed += 1
@@ -168,7 +168,7 @@ class ExcelProductHandler(BaseHandler):
                     if not slug:
                         slug = self.slugify(name)
                         
-                    code = self.extract_value(row, headers, ["product_code", "code"])
+                    code = self.extract_value(row, headers, ["product_code", "product code", "code"])
                     price_str = self.extract_value(row, headers, ["discount", "price"])
                     orig_price_str = self.extract_value(row, headers, ["original"])
                     
@@ -205,12 +205,12 @@ class ExcelProductHandler(BaseHandler):
                                 stock = int(nums[0]) if nums else 0
                             except: pass
 
-                    capsize = self.split_commas_or_semicolons(self.extract_value(row, headers, ["capsize"]))
-                    bundles = self.split_commas_or_semicolons(self.extract_value(row, headers, ["bundle"]))
-                    colors = self.split_commas_or_semicolons(self.extract_value(row, headers, ["color"]))
+                    capsize = self.split_commas_or_semicolons(self.extract_value(row, headers, ["capsize", "cap size"]))
+                    bundles = self.split_commas_or_semicolons(self.extract_value(row, headers, ["bundles", "bundle"]))
+                    colors = self.split_commas_or_semicolons(self.extract_value(row, headers, ["color", "colors"]))
                     parting = self.split_commas_or_semicolons(self.extract_value(row, headers, ["parting"]))
                     styling = self.split_commas_or_semicolons(self.extract_value(row, headers, ["styling", "style"]))
-                    unavailable_lengths = self.split_commas_or_semicolons(self.extract_value(row, headers, ["unavailable", "out of stock"]))
+                    unavailable_lengths = self.split_commas_or_semicolons(self.extract_value(row, headers, ["unavailable lengths", "unavailable", "out of stock"]))
                     desc = self.extract_value(row, headers, ["description", "desc"])
                     
                     # Inches logic, split by spaces or commas

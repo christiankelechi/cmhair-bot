@@ -6,6 +6,7 @@ Conversation states for all handlers.
 (
     ASK_NAME,
     ASK_SLUG,
+    ASK_PRODUCT_CODE,
     ASK_PRICE,
     ASK_ORIGINAL_PRICE,
     ASK_STOCK,
@@ -16,9 +17,12 @@ Conversation states for all handlers.
     ASK_LENGTHS,
     ASK_BUNDLES,
     ASK_CAP_SIZES,
+    ASK_PARTING,
+    ASK_STYLING,
+    ASK_UNAVAILABLE_LENGTHS,
     ASK_IMAGES,
     ASK_CONFIRM,
-) = range(14)
+) = range(18)
 
 # ── Add Category States ────────────────────────────────────────────────────────
 (

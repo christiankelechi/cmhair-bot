@@ -5,8 +5,10 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import ContextTypes, ConversationHandler
 from handlers.base import BaseHandler
 from states import (
-    ASK_NAME, ASK_SLUG, ASK_PRICE, ASK_ORIGINAL_PRICE, ASK_STOCK,
+    ASK_NAME, ASK_SLUG, ASK_PRODUCT_CODE, ASK_PRICE, ASK_ORIGINAL_PRICE, ASK_STOCK,
     ASK_DESCRIPTION, ASK_CATEGORY, ASK_BADGE, ASK_COLORS,
+    ASK_LENGTHS, ASK_BUNDLES, ASK_CAP_SIZES, ASK_PARTING, ASK_STYLING,
+    ASK_UNAVAILABLE_LENGTHS, ASK_IMAGES, ASK_CONFIRM,
 )
 
 log = logging.getLogger(__name__)
@@ -29,12 +31,19 @@ class FormSteps(BaseHandler):
         await update.message.reply_text("🛍️ *Add New Product*\n\nStep 1 — *Product name*?", parse_mode="Markdown")
         return ASK_NAME
 
-    async def ask_slug(self, update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> int:
+    async def ask_product_code(self, update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> int:
         ctx.user_data["name"] = update.message.text.strip()
+        await update.message.reply_text("Step 2 — *Product Code*? (e.g. CMH-101) — or /skip", parse_mode="Markdown")
+        return ASK_PRODUCT_CODE
+
+    async def ask_slug(self, update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> int:
+        text = update.message.text.strip()
+        if text != "/skip":
+            ctx.user_data["product_code"] = text
         hint = self.slugify(ctx.user_data["name"])
         ctx.user_data["_slug_hint"] = hint
         await update.message.reply_text(
-            f"Step 2 — *Slug*\nSuggested: `{hint}`\n\nSend custom slug or /use\\_suggested",
+            f"Step 3 — *Slug*\nSuggested: `{hint}`\n\nSend custom slug or /use\\_suggested",
             parse_mode="Markdown",
         )
         return ASK_SLUG
@@ -43,7 +52,7 @@ class FormSteps(BaseHandler):
         text = update.message.text.strip()
         slug = ctx.user_data["_slug_hint"] if text == "/use_suggested" else self.slugify(text)
         ctx.user_data["slug"] = slug
-        await update.message.reply_text(f"✅ Slug: `{slug}`\n\nStep 3 — *Price* ($)?", parse_mode="Markdown")
+        await update.message.reply_text(f"✅ Slug: `{slug}`\n\nStep 4 — *Price* ($)?", parse_mode="Markdown")
         return ASK_PRICE
 
     async def ask_original_price(self, update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> int:
@@ -52,7 +61,7 @@ class FormSteps(BaseHandler):
         except ValueError:
             await update.message.reply_text("❌ Enter a valid number e.g. 15000")
             return ASK_PRICE
-        await update.message.reply_text("Step 4 — *Original price* ($)? — or /skip", parse_mode="Markdown")
+        await update.message.reply_text("Step 5 — *Original price* ($)? — or /skip", parse_mode="Markdown")
         return ASK_ORIGINAL_PRICE
 
     async def ask_stock(self, update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> int:
@@ -63,7 +72,7 @@ class FormSteps(BaseHandler):
             except ValueError:
                 await update.message.reply_text("❌ Invalid. Try again or /skip")
                 return ASK_ORIGINAL_PRICE
-        await update.message.reply_text("Step 5 — *Stock quantity*?", parse_mode="Markdown")
+        await update.message.reply_text("Step 6 — *Stock quantity*?", parse_mode="Markdown")
         return ASK_STOCK
 
     async def ask_description(self, update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> int:
@@ -72,7 +81,7 @@ class FormSteps(BaseHandler):
         except ValueError:
             await update.message.reply_text("❌ Enter a whole number e.g. 50")
             return ASK_STOCK
-        await update.message.reply_text("Step 6 — *Description*? — or /skip", parse_mode="Markdown")
+        await update.message.reply_text("Step 7 — *Description*? — or /skip", parse_mode="Markdown")
         return ASK_DESCRIPTION
 
     async def ask_category(self, update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> int:
@@ -87,7 +96,7 @@ class FormSteps(BaseHandler):
         if cats:
             kb = [[InlineKeyboardButton(c["name"], callback_data=f"cat:{c['id']}")] for c in cats]
             kb.append([InlineKeyboardButton("⏭ None", callback_data="cat:none")])
-            await update.message.reply_text("Step 7 — *Category*?", reply_markup=InlineKeyboardMarkup(kb), parse_mode="Markdown")
+            await update.message.reply_text("Step 8 — *Category*?", reply_markup=InlineKeyboardMarkup(kb), parse_mode="Markdown")
             return ASK_CATEGORY
         return await self._ask_badge(update.message.chat_id, ctx)
 
@@ -103,7 +112,7 @@ class FormSteps(BaseHandler):
 
     async def _ask_badge(self, chat_id: int, ctx: ContextTypes.DEFAULT_TYPE) -> int:
         kb = [[InlineKeyboardButton(b.title(), callback_data=f"badge:{b}")] for b in BADGES]
-        await ctx.bot.send_message(chat_id=chat_id, text="Step 8 — *Badge*?", reply_markup=InlineKeyboardMarkup(kb), parse_mode="Markdown")
+        await ctx.bot.send_message(chat_id=chat_id, text="Step 9 — *Badge*?", reply_markup=InlineKeyboardMarkup(kb), parse_mode="Markdown")
         return ASK_BADGE
 
     async def receive_badge(self, update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> int:
@@ -111,5 +120,23 @@ class FormSteps(BaseHandler):
         await query.answer()
         badge = query.data.split(":", 1)[1]
         ctx.user_data["badge"] = None if badge == "none" else badge
-        await query.edit_message_text(f"✅ Badge: {badge}\n\nStep 9 — *Colors*? (comma-separated) — or /skip", parse_mode="Markdown")
+        await query.edit_message_text(f"✅ Badge: {badge}\n\nStep 10 — *Colors*? (comma-separated) — or /skip", parse_mode="Markdown")
         return ASK_COLORS
+
+    async def ask_parting(self, update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> int:
+        if update.message.text.strip() != "/skip":
+            ctx.user_data["cap_sizes"] = self.split_csv(update.message.text)
+        await update.message.reply_text("Step 13 — *Parting options*? (e.g. Middle Part, Side Part) — or /skip", parse_mode="Markdown")
+        return ASK_PARTING
+
+    async def ask_styling(self, update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> int:
+        if update.message.text.strip() != "/skip":
+            ctx.user_data["parting_options"] = self.split_csv(update.message.text)
+        await update.message.reply_text("Step 14 — *Styling*? (e.g. Straight, Curls) — or /skip", parse_mode="Markdown")
+        return ASK_STYLING
+
+    async def ask_unavailable_lengths(self, update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> int:
+        if update.message.text.strip() != "/skip":
+            ctx.user_data["styling"] = self.split_csv(update.message.text)
+        await update.message.reply_text("Step 15 — *Unavailable Lengths*? (e.g. 10, 12) — or /skip", parse_mode="Markdown")
+        return ASK_UNAVAILABLE_LENGTHS
