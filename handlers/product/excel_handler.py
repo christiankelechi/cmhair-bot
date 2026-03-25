@@ -38,7 +38,8 @@ class ExcelProductHandler(BaseHandler):
         headers = [
             "Product Name", "Slug", "Product Code", "Original Price", 
             "Discount Price", "Stock", "Capsize", "Inches", "Unavailable Lengths", 
-            "Bundles", "Color", "Parting", "Styling", "Category", "Description"
+            "Bundles", "Color", "Parting", "Styling", "Category", 
+            "Image Color Mapping", "Description"
         ]
         ws.append(headers)
         
@@ -47,6 +48,7 @@ class ExcelProductHandler(BaseHandler):
             "Bone Straight Closure Wig", "bone-straight-closure-wig", "BSC-01", 150.0,
             120.0, 50, "Medium", "14:$120, 16:$150, 18:$170", "10, 12",
             "3", "Natural Black", "Middle Part", "Straight", "Wigs",
+            '"Natural Black":"1"',
             "Premium quality 100% human hair bone straight closure wig."
         ]
         ws.append(dummy_row)
@@ -211,6 +213,7 @@ class ExcelProductHandler(BaseHandler):
                     parting = self.split_commas_or_semicolons(self.extract_value(row, headers, ["parting"]))
                     styling = self.split_commas_or_semicolons(self.extract_value(row, headers, ["styling", "style"]))
                     unavailable_lengths = self.split_commas_or_semicolons(self.extract_value(row, headers, ["unavailable lengths", "unavailable", "out of stock"]))
+                    image_color_mapping_str = self.extract_value(row, headers, ["image color mapping", "color mapping"])
                     desc = self.extract_value(row, headers, ["description", "desc"])
                     
                     # Inches logic, split by spaces or commas
@@ -282,6 +285,27 @@ class ExcelProductHandler(BaseHandler):
                         "category_id": category_id,
                         "is_active": True,
                     }
+
+                    # Handle image color mapping indices resolution
+                    if image_color_mapping_str and uploaded_image_urls:
+                        # expected format: "red":"1","blue":"2"
+                        mapping_dict = {}
+                        import re
+                        pairs = re.findall(r'"([^"]+)":"([^"]+)"', image_color_mapping_str)
+                        if not pairs:
+                            # Try single pair without quotes if it failed e.g. Red:1
+                            pairs = re.findall(r'([^:,]+):(\d+)', image_color_mapping_str)
+                            
+                        resolved_map = {}
+                        for k, v in pairs:
+                            try:
+                                idx = int(v) - 1
+                                if 0 <= idx < len(uploaded_image_urls):
+                                    resolved_map[k.strip()] = uploaded_image_urls[idx]
+                            except: pass
+                        
+                        if resolved_map:
+                            payload["color_image_map"] = resolved_map
                     
                     await api.create_product(payload, self.token(ctx))
                     success += 1

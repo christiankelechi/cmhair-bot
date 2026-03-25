@@ -98,6 +98,24 @@ class SingleProductHandler(BaseHandler):
                 "category_id": category_id,
                 "is_active": True,
             }
+
+            # Handle image color mapping indices resolution
+            image_color_mapping = data.get('image_color_mapping')
+            if image_color_mapping and isinstance(image_color_mapping, dict) and uploaded_image_urls:
+                resolved_map = {}
+                for color, idx_str in image_color_mapping.items():
+                    try:
+                        # User uses 1-based indexing
+                        idx = int(idx_str) - 1
+                        if 0 <= idx < len(uploaded_image_urls):
+                            resolved_map[color] = uploaded_image_urls[idx]
+                        else:
+                            log.warning(f"Image index {idx_str} out of range for color {color}")
+                    except ValueError:
+                        log.warning(f"Invalid image index {idx_str} for color {color}")
+                
+                if resolved_map:
+                    payload["color_image_map"] = resolved_map
             
             await api.create_product(payload, self.token(ctx))
             await msg.edit_text(f"✅ *Product Created successfully!*\n\n• Name: {name}\n• Slug: `{slug}`\n• Price: ${price:,.0f}", parse_mode="Markdown")

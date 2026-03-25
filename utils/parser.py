@@ -32,6 +32,8 @@ def parse_template(text: str) -> dict:
         r'style': 'styling',
         r'unavailable lengths': 'unavailable_lengths',
         r'out of stock': 'unavailable_lengths',
+        r'image color mapping': 'image_color_mapping',
+        r'color mapping': 'image_color_mapping',
         r'badge': 'badge',
         r'description': 'description',
         r'desc': 'description',
@@ -82,6 +84,16 @@ def parse_template(text: str) -> dict:
                             data['length_prices'] = length_prices
                     else:
                         data[field] = vals
+                elif field == 'image_color_mapping':
+                    # input format: "red":"1","blue":"2"
+                    # We want to extract it as a dict or keep it for the handler to process
+                    # Let's parse it into a dict of {color: index_str}
+                    mapping_dict = {}
+                    # Simple regex to find "key":"val" pairs
+                    pairs = re.findall(r'"([^"]+)":"([^"]+)"', val_part)
+                    for k, v in pairs:
+                        mapping_dict[k.strip()] = v.strip()
+                    data[field] = mapping_dict
                 elif field in ('price', 'original_price'):
                     # Remove currency symbols and commas
                     val = re.sub(r'[^\d.]', '', val_part.replace(',', ''))
@@ -124,5 +136,6 @@ def get_template_example() -> str:
         "Parting: Middle Part, Side Part\n"
         "Bundles: 3.5\n"
         "Colors: Natural color, Custom Made\n"
+        "Image Color Mapping: \"Natural color\":\"1\", \"Custom Made\":\"2\"\n"
         "Description: 26/3.5 SSW CLOSURE WIG NATURAL COLOR"
     )
