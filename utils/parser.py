@@ -21,6 +21,7 @@ def parse_template(text: str) -> dict:
         r'price': 'price',
         r'stock': 'stock',
         r'capsize': 'cap_sizes',
+        r'lace': 'lace_options',
         r'category': 'category_name',
         r'inches': 'lengths',
         r'length': 'lengths',
@@ -56,7 +57,7 @@ def parse_template(text: str) -> dict:
         for pattern in sorted_patterns:
             if pattern in key_part:
                 field = mapping[pattern]
-                if field in ('cap_sizes', 'lengths', 'bundles', 'colors', 'parting_options', 'styling', 'unavailable_lengths'):
+                if field in ('cap_sizes', 'lengths', 'bundles', 'colors', 'parting_options', 'styling', 'unavailable_lengths', 'lace_options'):
                     vals = [v.strip() for v in val_part.split(',') if v.strip()]
                     
                     if field == 'lengths' or field == 'unavailable_lengths':
@@ -82,6 +83,30 @@ def parse_template(text: str) -> dict:
                         data[field] = parsed_vals
                         if length_prices:
                             data['length_prices'] = length_prices
+                    elif field == 'colors':
+                        parsed_vals = []
+                        color_prices = []
+                        for v in vals:
+                            v_clean = v.strip()
+                            if ':' in v_clean:
+                                # example: "Blonde:+$30" or "Red: 20"
+                                parts = v_clean.split(':')
+                                if len(parts) >= 2:
+                                    color = parts[0].strip()
+                                    # Handle "+$30" or just "30"
+                                    price_str = re.sub(r'[^\d.]', '', parts[1])
+                                    if price_str:
+                                        color_prices.append({"color": color, "price": float(price_str)})
+                                        parsed_vals.append(color)
+                                    else:
+                                        parsed_vals.append(v_clean)
+                                else:
+                                    parsed_vals.append(v_clean)
+                            else:
+                                parsed_vals.append(v_clean)
+                        data[field] = parsed_vals
+                        if color_prices:
+                            data['color_prices'] = color_prices
                     else:
                         data[field] = vals
                 elif field == 'image_color_mapping':
@@ -135,7 +160,7 @@ def get_template_example() -> str:
         "Styling: Body Wave, Deep Wave Layers\n"
         "Parting: Middle Part, Side Part\n"
         "Bundles: 3.5\n"
-        "Colors: Natural color, Custom Made\n"
-        "Image Color Mapping: \"Natural color\":\"1\", \"Custom Made\":\"2\"\n"
+        "Colors: Natural color, Blonde:+$30, Red:+$20\n"
+        "Image Color Mapping: \"Natural color\":\"1\", \"Blonde\":\"2\", \"Red\":\"3\"\n"
         "Description: 26/3.5 SSW CLOSURE WIG NATURAL COLOR"
     )
